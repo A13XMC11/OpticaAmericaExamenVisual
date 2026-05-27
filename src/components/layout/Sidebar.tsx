@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, LayoutDashboard, UserCog, Upload } from "lucide-react";
+import { Users, LayoutDashboard, UserCog, Upload, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Rol } from "@/modules/auth/rbac";
 
@@ -25,36 +25,54 @@ export function Sidebar({ rol }: SidebarProps) {
   );
 
   return (
-    <aside className="flex h-full w-60 flex-col border-r bg-white">
-      <div className="flex h-16 items-center border-b px-6">
-        <span className="text-lg font-bold text-blue-700">óptica</span>
-        <span className="text-lg font-bold text-gray-800">américa</span>
+    <aside className="flex h-full w-64 flex-col border-r border-border bg-white">
+      {/* Brand */}
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary shadow-sm">
+          <Eye className="h-4 w-4 text-primary-foreground" />
+        </div>
+        <div className="flex min-w-0 flex-col leading-none">
+          <span className="text-sm font-bold tracking-tight">
+            <span className="text-primary">óptica</span>
+            <span className="text-foreground">américa</span>
+          </span>
+          <span className="text-[10px] text-muted-foreground">Sistema de Gestión</span>
+        </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      {/* Nav */}
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
+        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+          Menú
+        </p>
         {visible.map(({ href, label, icon: Icon }) => {
-          const active =
-            href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150",
                 active
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  active ? "text-primary" : "text-muted-foreground"
+                )}
+              />
               {label}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t px-3 py-3">
-        <p className="px-3 text-xs text-gray-400">desde 1982</p>
+      {/* Footer */}
+      <div className="shrink-0 border-t border-border px-5 py-3">
+        <p className="text-[10px] text-muted-foreground">desde 1982 · v1.0</p>
       </div>
     </aside>
   );

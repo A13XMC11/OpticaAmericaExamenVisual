@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { PrescriptionTable } from "./PrescriptionTable";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 function FichaCheckBox({
@@ -33,6 +33,8 @@ function FichaCheckBox({
   );
 }
 
+const fmt = (d: Date) => d.toISOString().split("T")[0];
+
 interface FichaFormProps {
   pacienteId: string;
   realizadoById: string;
@@ -50,6 +52,7 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
     defaultValues: {
       pacienteId,
       realizadoById,
+      fecha: fmt(new Date()) as unknown as Date,
       motivoControl: false,
       motivoNoVeLejos: false,
       motivoNoVeCerca: false,
@@ -88,7 +91,29 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
     }
   }
 
-  const { register } = methods;
+  const { register, watch, setValue } = methods;
+
+  const [
+    antDiabetes, antHipertension, antGlaucoma, antCirugia,
+    motivoNoVeLejos, motivoNoVeCerca, motivoCefalea, motivoHiperemia,
+  ] = watch([
+    "antDiabetes", "antHipertension", "antGlaucoma", "antCirugia",
+    "motivoNoVeLejos", "motivoNoVeCerca", "motivoCefalea", "motivoHiperemia",
+  ]);
+
+  useEffect(() => {
+    const needsSixMonths =
+      antDiabetes || antHipertension || antGlaucoma || antCirugia ||
+      motivoNoVeLejos || motivoNoVeCerca || motivoCefalea || motivoHiperemia;
+
+    const next = new Date();
+    next.setMonth(next.getMonth() + (needsSixMonths ? 6 : 12));
+    setValue("proximoControl", fmt(next) as unknown as Date);
+  }, [
+    antDiabetes, antHipertension, antGlaucoma, antCirugia,
+    motivoNoVeLejos, motivoNoVeCerca, motivoCefalea, motivoHiperemia,
+    setValue,
+  ]);
 
   return (
     <FormProvider {...methods}>
@@ -96,7 +121,7 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <div className="space-y-1">
             <Label>Fecha</Label>
-            <Input type="date" {...register("fecha", { valueAsDate: true })} />
+            <Input type="date" {...register("fecha")} />
           </div>
           <div className="space-y-1">
             <Label>Edad</Label>
@@ -108,7 +133,7 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
           </div>
           <div className="space-y-1">
             <Label>Próximo control</Label>
-            <Input type="date" {...register("proximoControl", { valueAsDate: true })} />
+            <Input type="date" {...register("proximoControl")} />
           </div>
         </div>
 

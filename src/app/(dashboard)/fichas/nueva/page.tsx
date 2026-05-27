@@ -40,7 +40,10 @@ export default async function NuevaFichaPage({ searchParams }: Props) {
         <FichaForm
           pacienteId={pacienteId}
           realizadoById={user.id}
-          defaultValues={{ edadSnapshot: calcularEdad(paciente.fechaNacimiento) }}
+          defaultValues={{
+            edadSnapshot: calcularEdad(paciente.fechaNacimiento),
+            ultimoExamenVisual: ultimoExamenVisual(paciente.fichas),
+          }}
         />
       </div>
     </div>
@@ -54,4 +57,9 @@ function calcularEdad(fechaNacimiento: Date): number {
   const m = hoy.getMonth() - nac.getMonth();
   if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
   return edad;
+}
+
+function ultimoExamenVisual(fichas: { fecha: string }[]): string {
+  const ref = fichas[0]?.fecha ? new Date(fichas[0].fecha) : new Date();
+  return ref.toLocaleDateString("es-EC", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
