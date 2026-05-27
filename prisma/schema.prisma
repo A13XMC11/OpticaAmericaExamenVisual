@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Rol {
+  ADMIN
+  OPTOMETRISTA
+  RECEPCIONISTA
+}
+
+enum SeccionMedicion {
+  LENTES_USO
+  RETINOSCOPIA
+  RECETA_FINAL
+}
+
+enum Ojo {
+  OD
+  OI
+}
+
+model Paciente {
+  id              String    @id @default(uuid())
+  cedula          String    @unique
+  nombre          String
+  apellido        String
+  fechaNacimiento DateTime
+  telefono        String?
+  direccion       String?
+  ocupacion       String?
+  email           String?
+  createdById     String
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  fichas FichaExamen[]
+  tags   PacienteTag[]
+
+  @@index([cedula])
+  @@index([nombre, apellido])
+  @@index([deletedAt])
+}
+
+model FichaExamen {
+  id                 String    @id @default(uuid())
+  pacienteId         String
+  fecha              DateTime  @default(now())
+  edadSnapshot       Int?
+  ultimoExamenVisual String?
+  realizadoById      String
+
+  // Motivo de consulta
+  motivoControl   Boolean @default(false)
+  motivoNoVeLejos Boolean @default(false)
+  motivoNoVeCerca Boolean @default(false)
+  motivoCefalea   Boolean @default(false)
+  motivoHiperemia Boolean @default(false)
+  motivoOtros     String?
+
+  // Examen ocular externo
+  pterigiumOD        String?
+  pterigiumOI        String?
+  pingueculaOD       String?
+  pingueculaOI       String?
+  hiperemia          Boolean @default(false)
+  resequedad         Boolean @default(false)
+  secrecion          Boolean @default(false)
+  examenExternoOtros String?
+
+  // Antecedentes
+  antDiabetes       Boolean @default(false)
+  antHipertension   Boolean @default(false)
+  antGlaucoma       Boolean @default(false)
+  antCirugia        Boolean @default(false)
+  lentesDesde       Int?
+  antecedentesOtros String?
+
+  // Observaciones
+  oftalmoscopia  String?
+  queratometria  String?
+  otros          String?
+  proximoControl DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  paciente   Paciente   @relation(fields: [pacienteId], references: [id], onDelete: Restrict)
+  mediciones Medicion[]
+  auditLogs  AuditLog[]
+
+  @@index([pacienteId])
+  @@index([fecha])
+  @@index([proximoControl])
+}
+
+model Medicion {
+  id      String          @id @default(uuid())
+  fichaId String
+  seccion SeccionMedicion
+  ojo     Ojo
+
+  esfera      String?
+  cilindro    String?
+  eje         String?
+  adicion     String?
+  av          String?
+  avSinLentes String?
+  avConLentes String?
+  binocular   String?
+  dp          String?
+
+  ficha FichaExamen @relation(fields: [fichaId], references: [id], onDelete: Cascade)
+
+  @@unique([fichaId, seccion, ojo])
+  @@index([fichaId])
+}
+
+model Tag {
+  id        String      @id @default(uuid())
+  nombre    String      @unique
+  color     String      @default("#3B82F6")
+  createdAt DateTime    @default(now())
+
+  pacientes PacienteTag[]
+}
+
+model PacienteTag {
+  pacienteId String
+  tagId      String
+
+  paciente Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([pacienteId, tagId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  accion    String
+  entidad   String
+  entidadId String?
+  fichaId   String?
+  cambios   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  ficha FichaExamen? @relation(fields: [fichaId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entidad, entidadId])
+  @@index([createdAt])
+}
