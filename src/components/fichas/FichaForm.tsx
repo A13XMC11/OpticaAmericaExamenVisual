@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm, FormProvider, type Resolver } from "react-hook-form";
+import { useForm, FormProvider, useFormContext, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { fichaSchema, type FichaInput } from "@/modules/fichas/ficha.schema";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,26 @@ import { PrescriptionTable } from "./PrescriptionTable";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+
+function FichaCheckBox({
+  name,
+  label,
+}: {
+  name: keyof FichaInput;
+  label: string;
+}) {
+  const { watch, setValue } = useFormContext<FichaInput>();
+  const checked = watch(name) as boolean;
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={(v) => setValue(name, !!v as never)}
+      />
+      {label}
+    </label>
+  );
+}
 
 interface FichaFormProps {
   pacienteId: string;
@@ -68,25 +88,11 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
     }
   }
 
-  const { register, watch, setValue } = methods;
-
-  function CheckBox({ name, label }: { name: keyof FichaInput; label: string }) {
-    const checked = watch(name) as boolean;
-    return (
-      <label className="flex cursor-pointer items-center gap-2 text-sm">
-        <Checkbox
-          checked={checked}
-          onCheckedChange={(v) => setValue(name, !!v as never)}
-        />
-        {label}
-      </label>
-    );
-  }
+  const { register } = methods;
 
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-8">
-        {/* Datos generales */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <div className="space-y-1">
             <Label>Fecha</Label>
@@ -108,15 +114,14 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
 
         <Separator />
 
-        {/* Motivo de consulta */}
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-gray-700">Motivo de consulta</h3>
           <div className="flex flex-wrap gap-4">
-            <CheckBox name="motivoControl" label="Control" />
-            <CheckBox name="motivoNoVeLejos" label="No ve de lejos" />
-            <CheckBox name="motivoNoVeCerca" label="No ve de cerca" />
-            <CheckBox name="motivoCefalea" label="Cefalea" />
-            <CheckBox name="motivoHiperemia" label="Hiperemia" />
+            <FichaCheckBox name="motivoControl" label="Control" />
+            <FichaCheckBox name="motivoNoVeLejos" label="No ve de lejos" />
+            <FichaCheckBox name="motivoNoVeCerca" label="No ve de cerca" />
+            <FichaCheckBox name="motivoCefalea" label="Cefalea" />
+            <FichaCheckBox name="motivoHiperemia" label="Hiperemia" />
           </div>
           <div className="space-y-1">
             <Label>Otros</Label>
@@ -126,8 +131,7 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
 
         <Separator />
 
-        {/* Examen ocular externo */}
-        <section className="space-y-3">
+<section className="space-y-3">
           <h3 className="text-sm font-semibold text-gray-700">Examen Ocular Externo</h3>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="space-y-1">
@@ -148,9 +152,9 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
             </div>
           </div>
           <div className="flex flex-wrap gap-4">
-            <CheckBox name="hiperemia" label="Hiperemia" />
-            <CheckBox name="resequedad" label="Resequedad" />
-            <CheckBox name="secrecion" label="Secreción" />
+            <FichaCheckBox name="hiperemia" label="Hiperemia" />
+            <FichaCheckBox name="resequedad" label="Resequedad" />
+            <FichaCheckBox name="secrecion" label="Secreción" />
           </div>
           <div className="space-y-1">
             <Label>Otros</Label>
@@ -160,14 +164,13 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
 
         <Separator />
 
-        {/* Antecedentes */}
-        <section className="space-y-3">
+<section className="space-y-3">
           <h3 className="text-sm font-semibold text-gray-700">Antecedentes</h3>
           <div className="flex flex-wrap gap-4">
-            <CheckBox name="antDiabetes" label="Diabetes" />
-            <CheckBox name="antHipertension" label="Hipertensión" />
-            <CheckBox name="antGlaucoma" label="Glaucoma" />
-            <CheckBox name="antCirugia" label="Cirugía" />
+            <FichaCheckBox name="antDiabetes" label="Diabetes" />
+            <FichaCheckBox name="antHipertension" label="Hipertensión" />
+            <FichaCheckBox name="antGlaucoma" label="Glaucoma" />
+            <FichaCheckBox name="antCirugia" label="Cirugía" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
@@ -183,16 +186,14 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
 
         <Separator />
 
-        {/* Lentes en uso */}
-        <section className="space-y-2">
+<section className="space-y-2">
           <h3 className="text-sm font-semibold text-gray-700">Lentes en uso</h3>
           <PrescriptionTable seccion="lentesUso" />
         </section>
 
         <Separator />
 
-        {/* Retinoscopia */}
-        <section className="space-y-2">
+<section className="space-y-2">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-gray-700">Retinoscopia</h3>
@@ -213,15 +214,13 @@ export function FichaForm({ pacienteId, realizadoById, fichaId, defaultValues }:
 
         <Separator />
 
-        {/* Receta final */}
-        <section className="space-y-2">
+<section className="space-y-2">
           <h3 className="text-sm font-semibold text-gray-700">Receta Final</h3>
           <PrescriptionTable seccion="recetaFinal" />
         </section>
 
         <Separator />
 
-        {/* Notas */}
         <div className="space-y-1">
           <Label>Otros / Observaciones</Label>
           <Input {...register("otros")} placeholder="Notas adicionales..." />

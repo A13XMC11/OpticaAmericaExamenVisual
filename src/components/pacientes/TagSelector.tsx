@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tags, X } from "lucide-react";
@@ -17,16 +18,9 @@ interface TagSelectorProps {
   onChange: (ids: string[]) => void;
 }
 
-const TAGS_DEFAULT: Tag[] = [
-  { id: "new-1", nombre: "Diabético", color: "#EF4444" },
-  { id: "new-2", nombre: "Menor de edad", color: "#F59E0B" },
-  { id: "new-3", nombre: "Alta graduación", color: "#8B5CF6" },
-  { id: "new-4", nombre: "Pendiente de gafas", color: "#3B82F6" },
-];
-
 async function fetchTags(): Promise<Tag[]> {
   const res = await fetch("/api/tags");
-  if (!res.ok) return TAGS_DEFAULT;
+  if (!res.ok) throw new Error(`Error ${res.status}`);
   const json = await res.json();
   return json.data ?? [];
 }
@@ -34,7 +28,7 @@ async function fetchTags(): Promise<Tag[]> {
 export function TagSelector({ selectedIds, onChange }: TagSelectorProps) {
   const [open, setOpen] = useState(false);
 
-  const { data: tags = [] } = useQuery({
+  const { data: tags = [], isError } = useQuery({
     queryKey: ["tags"],
     queryFn: fetchTags,
   });
@@ -47,6 +41,15 @@ export function TagSelector({ selectedIds, onChange }: TagSelectorProps) {
   }
 
   const selectedTags = tags.filter((t) => selectedIds.includes(t.id));
+
+  if (isError) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-red-600">
+        <AlertCircle className="h-4 w-4" />
+        No se pudieron cargar las etiquetas
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">

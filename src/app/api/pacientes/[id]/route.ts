@@ -12,6 +12,7 @@ import {
 } from "@/modules/auth/rbac";
 import { ok, fail } from "@/modules/shared/api-response";
 import { toErrorMessage } from "@/modules/shared/errors";
+import { z } from "zod";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -24,6 +25,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
     }
 
     const { id } = await params;
+    if (!z.string().uuid().safeParse(id).success) {
+      return NextResponse.json(fail("ID inválido"), { status: 400 });
+    }
     const paciente = await findPacienteById(id);
     if (!paciente) return NextResponse.json(fail("Paciente no encontrado"), { status: 404 });
 
@@ -42,6 +46,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
 
     const { id } = await params;
+    if (!z.string().uuid().safeParse(id).success) {
+      return NextResponse.json(fail("ID inválido"), { status: 400 });
+    }
     const body = await request.json();
     const parsed = pacienteUpdateSchema.safeParse(body);
     if (!parsed.success) {
@@ -64,6 +71,9 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     }
 
     const { id } = await params;
+    if (!z.string().uuid().safeParse(id).success) {
+      return NextResponse.json(fail("ID inválido"), { status: 400 });
+    }
     await softDeletePaciente(id);
     return NextResponse.json(ok({ id }));
   } catch (err) {

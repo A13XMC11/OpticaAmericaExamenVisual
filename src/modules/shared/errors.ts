@@ -27,6 +27,19 @@ export class ForbiddenError extends AppError {
   }
 }
 
+export class DuplicateCedulaError extends AppError {
+  constructor() {
+    super("Ya existe un paciente con esa cédula", "DUPLICATE_CEDULA", 409);
+  }
+}
+
+export function assertDbError(error: { message: string; code?: string } | null): void {
+  if (!error) return;
+  console.error("[db]", error.code, error.message);
+  if (error.code === "23505") throw new DuplicateCedulaError();
+  throw new AppError("Error de base de datos", "DB_ERROR", 500);
+}
+
 export function toErrorMessage(err: unknown): string {
   if (err instanceof AppError) return err.message;
   if (err instanceof Error) return err.message;

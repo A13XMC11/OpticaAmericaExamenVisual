@@ -5,6 +5,7 @@ import { fichaSchema } from "@/modules/fichas/ficha.schema";
 import { puedeCrearFicha, puedeGestionarPacientes } from "@/modules/auth/rbac";
 import { ok, fail } from "@/modules/shared/api-response";
 import { toErrorMessage } from "@/modules/shared/errors";
+import { z } from "zod";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,8 +16,8 @@ export async function GET(request: NextRequest) {
     }
 
     const pacienteId = request.nextUrl.searchParams.get("pacienteId");
-    if (!pacienteId) {
-      return NextResponse.json(fail("pacienteId requerido"), { status: 400 });
+    if (!pacienteId || !z.string().uuid().safeParse(pacienteId).success) {
+      return NextResponse.json(fail("pacienteId requerido y debe ser un UUID válido"), { status: 400 });
     }
 
     const fichas = await findFichasByPaciente(pacienteId);

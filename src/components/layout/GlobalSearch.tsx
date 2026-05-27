@@ -25,6 +25,7 @@ interface Paciente {
 async function buscarPacientes(q: string): Promise<Paciente[]> {
   if (q.length < 2) return [];
   const res = await fetch(`/api/pacientes/buscar?q=${encodeURIComponent(q)}`);
+  if (!res.ok) throw new Error(`Error ${res.status}`);
   const json = await res.json();
   return json.data ?? [];
 }

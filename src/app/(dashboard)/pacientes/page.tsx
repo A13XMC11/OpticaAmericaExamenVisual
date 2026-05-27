@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { findPacientes, type PacienteRow } from "@/modules/pacientes/paciente.repository";
 import { getRol } from "@/modules/auth/rbac";
+import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button-link";
@@ -17,7 +18,8 @@ export default async function PacientesPage({ searchParams }: Props) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const rol = getRol(user!);
+  if (!user) redirect("/login");
+  const rol = getRol(user);
 
   const { data: pacientes, total } = await findPacientes({ page, limit: 20, q, tagId });
   const totalPages = Math.ceil(total / 20);

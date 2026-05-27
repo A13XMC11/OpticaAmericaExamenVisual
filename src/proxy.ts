@@ -40,7 +40,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && pathname === "/login") {
+  const AUTH_ROUTES = ["/login", "/recuperar-contrasena", "/nueva-contrasena"];
+  if (user && AUTH_ROUTES.includes(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

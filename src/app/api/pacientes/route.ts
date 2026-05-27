@@ -4,7 +4,8 @@ import { findPacientes, createPaciente } from "@/modules/pacientes/paciente.repo
 import { pacienteSchema } from "@/modules/pacientes/paciente.schema";
 import { puedeGestionarPacientes } from "@/modules/auth/rbac";
 import { ok, fail } from "@/modules/shared/api-response";
-import { toErrorMessage } from "@/modules/shared/errors";
+import { toErrorMessage, DuplicateCedulaError } from "@/modules/shared/errors";
+import { z } from "zod";
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,7 +19,10 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
     const limit = Math.min(50, parseInt(searchParams.get("limit") ?? "20"));
     const q = searchParams.get("q") ?? undefined;
-    const tagId = searchParams.get("tagId") ?? undefined;
+    const rawTagId = searchParams.get("tagId") ?? undefined;
+    const tagId = rawTagId
+      ? z.string().uuid().safeParse(rawTagId).success ? rawTagId : undefined
+      : undefined;
 
     const { data, total } = await findPacientes({ page, limit, q, tagId });
     return NextResponse.json(ok(data, { total, page, limit }));
@@ -44,10 +48,9 @@ export async function POST(request: NextRequest) {
     const paciente = await createPaciente({ ...parsed.data, createdById: user.id });
     return NextResponse.json(ok(paciente), { status: 201 });
   } catch (err) {
-    const msg = toErrorMessage(err);
-    if (msg.includes("Unique constraint") || msg.includes("cedula")) {
-      return NextResponse.json(fail("Ya existe un paciente con esa cédula"), { status: 409 });
+    if (err instanceof DuplicateCedulaError) {
+      return NextResponse.json(fail(err.message), { status: err.status });
     }
-    return NextResponse.json(fail(msg), { status: 500 });
+    return NextResponse.json(fail(toErrorMessage(err)), { status: 500 });
   }
 }

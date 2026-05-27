@@ -1,15 +1,21 @@
 import { z } from "zod";
 
+const medidaOptica = z
+  .string()
+  .regex(/^[+-]?\d+(\.\d{1,2})?$/, "Formato inválido (ej: +1.25 o -0.50)")
+  .optional()
+  .or(z.literal(""));
+
 const medicionSchema = z.object({
-  esfera: z.string().optional(),
-  cilindro: z.string().optional(),
-  eje: z.string().optional(),
-  adicion: z.string().optional(),
-  av: z.string().optional(),
-  avSinLentes: z.string().optional(),
-  avConLentes: z.string().optional(),
-  binocular: z.string().optional(),
-  dp: z.string().optional(),
+  esfera: medidaOptica,
+  cilindro: medidaOptica,
+  eje: z.string().regex(/^\d{1,3}$/, "El eje debe ser un número entre 0 y 180").optional().or(z.literal("")),
+  adicion: medidaOptica,
+  av: z.string().max(20).optional(),
+  avSinLentes: z.string().max(20).optional(),
+  avConLentes: z.string().max(20).optional(),
+  binocular: z.string().max(20).optional(),
+  dp: z.string().max(10).optional(),
 });
 
 export const fichaSchema = z.object({
@@ -17,7 +23,7 @@ export const fichaSchema = z.object({
   fecha: z.coerce.date().optional(),
   edadSnapshot: z.coerce.number().int().min(0).max(120).optional(),
   ultimoExamenVisual: z.string().max(100).optional(),
-  realizadoById: z.string(),
+  realizadoById: z.string().uuid(),
   proximoControl: z.coerce.date().optional().nullable(),
 
   // Motivo de consulta

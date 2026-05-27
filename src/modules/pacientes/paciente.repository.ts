@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { assertDbError } from "@/modules/shared/errors";
 import type { PacienteInput, PacienteUpdateInput } from "./paciente.schema";
+
+type DbClient = Awaited<ReturnType<typeof createClient>>;
 
 export type PacienteRow = {
   id: string;
@@ -31,10 +34,6 @@ type FichaCountDb = { pacienteId: string };
 const pacienteColumns =
   "id,cedula,nombre,apellido,fechaNacimiento,telefono,direccion,ocupacion,email,createdById,createdAt,updatedAt";
 
-function assertNoError(error: { message: string } | null) {
-  if (error) throw new Error(error.message);
-}
-
 function toIso(value: Date | string | null | undefined) {
   if (!value) return null;
   return value instanceof Date ? value.toISOString() : value;
@@ -55,10 +54,9 @@ function toPacienteRow(
   };
 }
 
-async function hydratePacientes(rows: PacienteDb[]) {
+async function hydratePacientes(supabase: DbClient, rows: PacienteDb[]) {
   if (rows.length === 0) return [];
 
-  const supabase = await createClient();
   const ids = rows.map((row) => row.id);
 
   const [{ data: pacienteTags, error: pacienteTagsError }, { data: fichas, error: fichasError }] =
@@ -67,15 +65,15 @@ async function hydratePacientes(rows: PacienteDb[]) {
       supabase.from("FichaExamen").select("pacienteId").in("pacienteId", ids),
     ]);
 
-  assertNoError(pacienteTagsError);
-  assertNoError(fichasError);
+  assertDbError(pacienteTagsError);
+  assertDbError(fichasError);
 
   const tagIds = [...new Set(((pacienteTags ?? []) as PacienteTagDb[]).map((row) => row.tagId))];
   const { data: tags, error: tagsError } = tagIds.length
     ? await supabase.from("Tag").select("id,nombre,color").in("id", tagIds)
     : { data: [], error: null };
 
-  assertNoError(tagsError);
+  assertDbError(tagsError);
 
   const tagById = new Map((tags ?? []).map((tag) => [tag.id, tag as TagDb]));
   const tagsByPaciente = new Map<string, { tag: TagDb }[]>();
@@ -110,7 +108,7 @@ export async function findPacientes(opts: {
       .from("PacienteTag")
       .select("pacienteId")
       .eq("tagId", tagId);
-    assertNoError(error);
+    assertDbError(error);
     allowedIds = [...new Set((data ?? []).map((row) => row.pacienteId as string))];
     if (allowedIds.length === 0) return { data: [], total: 0 };
   }
@@ -130,9 +128,9 @@ export async function findPacientes(opts: {
   if (allowedIds) query = query.in("id", allowedIds);
 
   const { data, error, count } = await query;
-  assertNoError(error);
+  assertDbError(error);
 
-  return { data: await hydratePacientes((data ?? []) as PacienteDb[]), total: count ?? 0 };
+  return { data: await hydratePacientes(supabase, (data ?? []) as PacienteDb[]), total: count ?? 0 };
 }
 
 export async function findPacienteByCedula(cedula: string) {
@@ -146,8 +144,8 @@ export async function findPacienteByCedula(cedula: string) {
     .limit(1)
     .maybeSingle();
 
-  assertNoError(error);
-  const rows = data ? await hydratePacientes([data as PacienteDb]) : [];
+  assertDbError(error);
+  const rows = data ? await hydratePacientes(supabase, [data as PacienteDb]) : [];
   return rows[0] ?? null;
 }
 
@@ -162,8 +160,8 @@ export async function searchPacientes(q: string) {
     .order("updatedAt", { ascending: false })
     .limit(8);
 
-  assertNoError(error);
-  return hydratePacientes((data ?? []) as PacienteDb[]);
+  assertDbError(error);
+  return hydratePacientes(supabase, (data ?? []) as PacienteDb[]);
 }
 
 export async function findPacienteById(id: string) {
@@ -175,10 +173,10 @@ export async function findPacienteById(id: string) {
     .is("deletedAt", null)
     .maybeSingle();
 
-  assertNoError(error);
+  assertDbError(error);
   if (!data) return null;
 
-  const [paciente] = await hydratePacientes([data as PacienteDb]);
+  const [paciente] = await hydratePacientes(supabase, [data as PacienteDb]);
   const { data: fichas, error: fichasError } = await supabase
     .from("FichaExamen")
     .select(
@@ -187,7 +185,7 @@ export async function findPacienteById(id: string) {
     .eq("pacienteId", id)
     .order("fecha", { ascending: false });
 
-  assertNoError(fichasError);
+  assertDbError(fichasError);
 
   return { ...paciente, fichas: fichas ?? [] };
 }
@@ -214,16 +212,16 @@ export async function createPaciente(data: PacienteInput & { createdById: string
     .select(pacienteColumns)
     .single();
 
-  assertNoError(error);
+  assertDbError(error);
 
   if (tagIds?.length) {
     const { error: tagsError } = await supabase
       .from("PacienteTag")
       .insert(tagIds.map((tagId) => ({ pacienteId: id, tagId })));
-    assertNoError(tagsError);
+    assertDbError(tagsError);
   }
 
-  const [row] = await hydratePacientes([paciente as PacienteDb]);
+  const [row] = await hydratePacientes(supabase, [paciente as PacienteDb]);
   return row;
 }
 
@@ -247,21 +245,22 @@ export async function updatePaciente(id: string, data: PacienteUpdateInput) {
     .select(pacienteColumns)
     .single();
 
-  assertNoError(error);
+  assertDbError(error);
 
   if (tagIds !== undefined) {
+    // delete + insert no es atómico; usar RPC con transacción para eliminar la race condition
     const { error: deleteError } = await supabase.from("PacienteTag").delete().eq("pacienteId", id);
-    assertNoError(deleteError);
+    assertDbError(deleteError);
 
     if (tagIds.length) {
       const { error: insertError } = await supabase
         .from("PacienteTag")
         .insert(tagIds.map((tagId) => ({ pacienteId: id, tagId })));
-      assertNoError(insertError);
+      assertDbError(insertError);
     }
   }
 
-  const [row] = await hydratePacientes([paciente as PacienteDb]);
+  const [row] = await hydratePacientes(supabase, [paciente as PacienteDb]);
   return row;
 }
 
@@ -271,5 +270,5 @@ export async function softDeletePaciente(id: string) {
     .update({ deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
     .eq("id", id);
 
-  assertNoError(error);
+  assertDbError(error);
 }

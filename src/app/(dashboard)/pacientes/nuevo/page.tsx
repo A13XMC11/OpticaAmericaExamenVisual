@@ -7,7 +7,11 @@ interface Props {
 }
 
 export default async function NuevoPacientePage({ searchParams }: Props) {
-  const { cedula } = await searchParams;
+  const rawCedula = (await searchParams).cedula;
+  const cedula =
+    typeof rawCedula === "string" && /^\d{6,12}$/.test(rawCedula)
+      ? rawCedula
+      : undefined;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

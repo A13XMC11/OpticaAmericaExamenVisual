@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { assertDbError } from "@/modules/shared/errors";
 import type { FichaInput, FichaUpdateInput } from "./ficha.schema";
+
+type DbClient = Awaited<ReturnType<typeof createClient>>;
 
 type SeccionMedicion = "LENTES_USO" | "RETINOSCOPIA" | "RECETA_FINAL";
 type Ojo = "OD" | "OI";
@@ -62,10 +65,6 @@ const fichaColumns =
 const medicionColumns =
   "id,fichaId,seccion,ojo,esfera,cilindro,eje,adicion,av,avSinLentes,avConLentes,binocular,dp";
 
-function assertNoError(error: { message: string } | null) {
-  if (error) throw new Error(error.message);
-}
-
 function toIso(value: Date | string | null | undefined) {
   if (!value) return null;
   return value instanceof Date ? value.toISOString() : value;
@@ -80,28 +79,28 @@ function nullIfEmpty(value: unknown) {
 }
 
 function fichaPayload(data: Partial<FichaInput | FichaUpdateInput>) {
-  const payload = stripUndefined({
-    ...data,
-    fecha: data.fecha === undefined ? undefined : toIso(data.fecha),
-    proximoControl: data.proximoControl === undefined ? undefined : toIso(data.proximoControl),
-    motivoOtros: data.motivoOtros === undefined ? undefined : nullIfEmpty(data.motivoOtros),
+  const {
+    lentesUsoOD: _lUD,
+    lentesUsoOI: _lUI,
+    retinoscopiaOD: _rOD,
+    retinoscopiaOI: _rOI,
+    recetaFinalOD: _rfOD,
+    recetaFinalOI: _rfOI,
+    ...rest
+  } = data;
+  return stripUndefined({
+    ...rest,
+    fecha: rest.fecha === undefined ? undefined : toIso(rest.fecha),
+    proximoControl: rest.proximoControl === undefined ? undefined : toIso(rest.proximoControl),
+    motivoOtros: rest.motivoOtros === undefined ? undefined : nullIfEmpty(rest.motivoOtros),
     examenExternoOtros:
-      data.examenExternoOtros === undefined ? undefined : nullIfEmpty(data.examenExternoOtros),
+      rest.examenExternoOtros === undefined ? undefined : nullIfEmpty(rest.examenExternoOtros),
     antecedentesOtros:
-      data.antecedentesOtros === undefined ? undefined : nullIfEmpty(data.antecedentesOtros),
-    oftalmoscopia: data.oftalmoscopia === undefined ? undefined : nullIfEmpty(data.oftalmoscopia),
-    queratometria: data.queratometria === undefined ? undefined : nullIfEmpty(data.queratometria),
-    otros: data.otros === undefined ? undefined : nullIfEmpty(data.otros),
+      rest.antecedentesOtros === undefined ? undefined : nullIfEmpty(rest.antecedentesOtros),
+    oftalmoscopia: rest.oftalmoscopia === undefined ? undefined : nullIfEmpty(rest.oftalmoscopia),
+    queratometria: rest.queratometria === undefined ? undefined : nullIfEmpty(rest.queratometria),
+    otros: rest.otros === undefined ? undefined : nullIfEmpty(rest.otros),
   });
-
-  delete payload.lentesUsoOD;
-  delete payload.lentesUsoOI;
-  delete payload.retinoscopiaOD;
-  delete payload.retinoscopiaOI;
-  delete payload.recetaFinalOD;
-  delete payload.recetaFinalOI;
-
-  return payload;
 }
 
 function medicionPayload(fichaId: string, seccion: SeccionMedicion, ojo: Ojo, value?: MedicionPayload) {
@@ -134,10 +133,9 @@ function buildMediciones(fichaId: string, data: Partial<FichaInput | FichaUpdate
   ].filter((medicion): medicion is NonNullable<typeof medicion> => medicion !== null);
 }
 
-async function hydrateFicha(ficha: FichaDb | null) {
+async function hydrateFicha(supabase: DbClient, ficha: FichaDb | null) {
   if (!ficha) return null;
 
-  const supabase = await createClient();
   const [{ data: mediciones, error: medicionesError }, { data: paciente, error: pacienteError }] =
     await Promise.all([
       supabase.from("Medicion").select(medicionColumns).eq("fichaId", ficha.id),
@@ -148,8 +146,8 @@ async function hydrateFicha(ficha: FichaDb | null) {
         .maybeSingle(),
     ]);
 
-  assertNoError(medicionesError);
-  assertNoError(pacienteError);
+  assertDbError(medicionesError);
+  assertDbError(pacienteError);
 
   return {
     ...ficha,
@@ -170,19 +168,20 @@ export async function findFichasByPaciente(pacienteId: string) {
     .eq("pacienteId", pacienteId)
     .order("fecha", { ascending: false });
 
-  assertNoError(error);
-  return Promise.all(((data ?? []) as FichaDb[]).map((ficha) => hydrateFicha(ficha)));
+  assertDbError(error);
+  return Promise.all(((data ?? []) as FichaDb[]).map((ficha) => hydrateFicha(supabase, ficha)));
 }
 
 export async function findFichaById(id: string) {
-  const { data, error } = await (await createClient())
+  const supabase = await createClient();
+  const { data, error } = await supabase
     .from("FichaExamen")
     .select(fichaColumns)
     .eq("id", id)
     .maybeSingle();
 
-  assertNoError(error);
-  return hydrateFicha(data as FichaDb | null);
+  assertDbError(error);
+  return hydrateFicha(supabase, data as FichaDb | null);
 }
 
 export async function createFicha(data: FichaInput) {
@@ -202,15 +201,15 @@ export async function createFicha(data: FichaInput) {
     .select(fichaColumns)
     .single();
 
-  assertNoError(error);
+  assertDbError(error);
 
   const mediciones = buildMediciones(id, data);
   if (mediciones.length) {
     const { error: medicionesError } = await supabase.from("Medicion").insert(mediciones);
-    assertNoError(medicionesError);
+    assertDbError(medicionesError);
   }
 
-  return hydrateFicha(ficha as FichaDb);
+  return hydrateFicha(supabase, ficha as FichaDb);
 }
 
 export async function updateFicha(id: string, data: FichaUpdateInput) {
@@ -223,17 +222,17 @@ export async function updateFicha(id: string, data: FichaUpdateInput) {
     .select(fichaColumns)
     .single();
 
-  assertNoError(error);
+  assertDbError(error);
 
   const mediciones = buildMediciones(id, data);
-  for (const medicion of mediciones) {
+  if (mediciones.length > 0) {
     const { error: medicionError } = await supabase
       .from("Medicion")
-      .upsert(medicion, { onConflict: "fichaId,seccion,ojo" });
-    assertNoError(medicionError);
+      .upsert(mediciones, { onConflict: "fichaId,seccion,ojo" });
+    assertDbError(medicionError);
   }
 
-  return hydrateFicha(ficha as FichaDb);
+  return hydrateFicha(supabase, ficha as FichaDb);
 }
 
 export async function findProximosControles(days = 30) {
@@ -250,7 +249,7 @@ export async function findProximosControles(days = 30) {
     .order("proximoControl", { ascending: true })
     .limit(20);
 
-  assertNoError(error);
+  assertDbError(error);
 
   const fichas = data ?? [];
   const pacienteIds = [...new Set(fichas.map((ficha) => ficha.pacienteId as string))];
@@ -262,7 +261,7 @@ export async function findProximosControles(days = 30) {
     .is("deletedAt", null)
     .in("id", pacienteIds);
 
-  assertNoError(pacientesError);
+  assertDbError(pacientesError);
 
   const pacienteById = new Map((pacientes ?? []).map((paciente) => [paciente.id, paciente]));
 
