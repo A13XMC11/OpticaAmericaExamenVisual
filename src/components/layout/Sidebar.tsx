@@ -46,7 +46,17 @@ export function Sidebar({ rol }: SidebarProps) {
           Menú
         </p>
         {visible.map(({ href, label, icon: Icon }) => {
-          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const active =
+            href === "/"
+              ? pathname === "/"
+              : pathname === href ||
+                (pathname.startsWith(href + "/") &&
+                  !visible.some(
+                    (other) =>
+                      other.href !== href &&
+                      other.href.startsWith(href) &&
+                      (pathname === other.href || pathname.startsWith(other.href + "/"))
+                  ));
           return (
             <Link
               key={href}
